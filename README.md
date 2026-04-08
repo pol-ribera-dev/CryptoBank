@@ -1,66 +1,28 @@
-## Foundry
+# CryptoBank
+A simple Solidity project that implements a decentralized banking system with support for shared accounts.
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Overview
 
-Foundry consists of:
+This project includes a basic bank contract where users can deposit and withdraw Ether, along with a multi-user account contract that allows several users to manage a single shared balance.
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+The system is designed to demonstrate how contracts interact with each other and how msg.sender affects account ownership when using intermediary contracts.
 
-## Documentation
+## Contracts
 
-https://book.getfoundry.sh/
+### CryptoBank (Bank.sol)
 
-## Usage
+The main contract acts as a minimal bank. It keeps track of user balances and allows deposits and withdraws.
 
-### Build
+Each user interacts with their own balance, and the contract ensures that withdraws cannot exceed available funds. Also there is a configurable maximum balance per account.
 
-```shell
-$ forge build
-```
+### IBank (IBank.sol)
 
-### Test
+A simple interface used to interact with the bank contract. It allows external contracts to call the withdraw function.
 
-```shell
-$ forge test
-```
+### MultiUser Account (MultiUserAccount.sol)
 
-### Format
+This contract represents a shared account controlled by multiple users. From the bank’s perspective, this contract is a single account, but internally it manages permissions for different addresses.
 
-```shell
-$ forge fmt
-```
+Users can deposit funds into the bank through this contract and withdraw funds from it. The contract forwards calls to the bank and redistributes withdrawn Ether to the user who initiated the request.
 
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+IMPORTANT, it needs the path of IBank and it has to be delpoyed after the Bank.sol
