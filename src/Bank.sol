@@ -13,7 +13,7 @@ pragma solidity 0.8.24;
     infinite actions, so the contract has to keep track of the state at all times. 
 */
 
-contract CryptoBank {
+contract Bank {
 
 
     // VARIABLES
