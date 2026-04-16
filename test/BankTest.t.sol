@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 
 import "forge-std/Test.sol";
 import "../src/Bank.sol";
+import "../src/Reentrancy.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 contract BankTest is Test {
@@ -18,18 +19,9 @@ contract BankTest is Test {
         bank = new Bank(maxBalance, admin);
     }
 
-    // deploy correcte i setejat el user i el max
-
-    // Deposit que funcioni
-    // Deposit fail pk ja hi ha massa money
-    // provar una cuantitat superior de una
-    // i provar de fer dos deposits
-    // deploy sense tindre fucking money man
-
-
     function testBankCorrectlyDeployed() external view { 
         assert(address(bank) != address(0)); 
-    } // cal???
+    } 
 
     function testFuzzDeposit(uint256 etherAmount) public {
         vm.assume(etherAmount <= 1 ether);
@@ -133,62 +125,186 @@ contract BankTest is Test {
 
 
     function testWithdrawCorrectly() public {
-    
-    }
+        vm.startPrank(randomUser);
+        uint256 etherAmount = 0.5 ether;
+        vm.deal(randomUser, etherAmount);
 
+        bank.depositEther{value: etherAmount}();
 
-/*
+        uint256 balanceBeforeInBank = bank.userBalance(randomUser);
+        uint256 balanceBeforeOutBank = address(randomUser).balance;
 
+        bank.withdrawEther(etherAmount);
 
+        uint256 balanceAfterInBank = bank.userBalance(randomUser);
+        uint256 balanceAfterOutBank = address(randomUser).balance;
 
-
-    //withdraw correcte
-    // dos withdraws
-    // provar sense posar diners
-    // provar retirant mes diners 
-    // pots retirar més que el maxim balance
-    // un ffuzing test? DEPLOY MILLOR
-    // 100% de branches
-    // revisar video
-
-    function testWithdrawCorrectly() public {
-    
+        assert(balanceBeforeInBank == balanceAfterInBank + etherAmount);
+        assert(balanceBeforeOutBank + etherAmount == balanceAfterOutBank);
+        
+        vm.stopPrank();
     }
 
     function testTwoWithdrawCorrectly() public {
+        vm.startPrank(randomUser);
+        uint256 etherAmount = 0.5 ether;
+        uint256 etherWithdraw = 0.2 ether;
+        vm.deal(randomUser, etherAmount);
+
+        bank.depositEther{value: etherAmount}();
+
+        uint256 balanceBeforeInBank = bank.userBalance(randomUser);
+        uint256 balanceBeforeOutBank = address(randomUser).balance;
+
+        bank.withdrawEther(etherWithdraw);
+        bank.withdrawEther(etherWithdraw);
+
+        uint256 balanceAfterInBank = bank.userBalance(randomUser);
+        uint256 balanceAfterOutBank = address(randomUser).balance;
+
+        assert(balanceBeforeInBank == balanceAfterInBank + etherWithdraw*2);
+        assert(balanceBeforeOutBank + etherWithdraw*2 == balanceAfterOutBank);
+        
+        vm.stopPrank();
     }
 
     function testWithdrawWithoutDeposit() public {
-    }
-    function testWithdrawWithoutEnoughtFunds() public {
-    }
-    function testWithdrawCorrectlyMoreThanMaxBalance() public {
-    }
-
-    // modify balance correcte
-    // Sol ho pot fer l'admin
-
-    function testChangeMaxBalanceCorrectly() public {
-    }
-    function testJustAdminCanChangeMaxBalance() public {
-    }
-
-    function testStakingTokenMintsCorrectly() public {
         vm.startPrank(randomUser);
-        uint256 amount_ = 1 ether; 
+        uint256 etherAmount = 0.5 ether;
 
-        // Token balance previous
-        uint256 balanceBefore_ = IERC20(address(stakingToken)).balanceOf(randomUser); // UserA = 50 tokens
-        stakingToken.mint(amount_); // Mint 1 token
-        // Token balance after
-        uint256 balanceAfter_ = IERC20(address(stakingToken)).balanceOf(randomUser); // UserA = 51 tokens
+        vm.expectRevert("Not enough ether");
+
+        bank.withdrawEther(etherAmount);
         
-        assert(balanceAfter_ - balanceBefore_ == amount_); // 51 tokens - 50 tokens == 1 token?
+        vm.stopPrank();
+    }
+
+    function testWithdrawWithoutEnoughtFunds() public {
+        vm.startPrank(randomUser);
+        uint256 etherAmount = 0.5 ether;
+        uint256 etherWithdraw = 0.6 ether;
+
+        vm.deal(randomUser, etherAmount);
+        bank.depositEther{value: etherAmount}();
+
+        vm.expectRevert("Not enough ether");
+        bank.withdrawEther(etherWithdraw);
+        
+        vm.stopPrank();
+    }
+
+    function testMultipleUsersWithdraw() public {
+        uint256 etherAmount1 = 0.6 ether;
+        uint256 etherAmount2 = 0.7 ether;
+        
+        vm.deal(randomUser, etherAmount1);
+        vm.deal(randomUser2, etherAmount2);
+
+        vm.prank(randomUser);
+        bank.depositEther{value: etherAmount1}();
+        vm.stopPrank();
+
+        vm.prank(randomUser2);
+        bank.depositEther{value: etherAmount2}();
+        vm.stopPrank();
+
+        vm.prank(randomUser);
+        bank.withdrawEther(etherAmount1);
+        vm.stopPrank();
+
+        uint256 balanceUser1Bank = bank.userBalance(randomUser);
+        uint256 balanceUser2Bank = bank.userBalance(randomUser2);
+        uint256 balanceUser1Real = address(randomUser).balance;
+        uint256 balanceBankTotal = address(bank).balance;
+
+        assert(balanceUser1Bank == 0);
+        assert(balanceUser2Bank == etherAmount2);
+        assert(balanceUser1Real == etherAmount1);
+        assert(balanceBankTotal == etherAmount2);
+
+    }
+
+    function testShouldChangeMaxBalance() public {
+        vm.startPrank(admin);
+        uint256 newMaxBalance = 2 ether;
+
+        uint256 maxBalanceBefore = bank.maxBalance();
+        bank.modifyMaxBalance(newMaxBalance);
+        uint256 maxBalanceAfter = bank.maxBalance();
+
+        assert(maxBalanceBefore != maxBalanceAfter);
+        assert(maxBalanceAfter == newMaxBalance);
 
         vm.stopPrank();
     }
-    */
-}
 
-// mas textos o quito alguno
-// estan ben fets?
+    function testJustAdminCanChangeMaxBalance() public {
+        vm.startPrank(randomUser);
+        uint256 newMaxBalance = 2 ether;
+
+        vm.expectRevert("Not allowed");
+
+        bank.modifyMaxBalance(newMaxBalance);
+
+        vm.stopPrank();
+    }
+
+    function testDepositWithMoreThanMaxBalance() public {
+        uint256 newMaxBalance = 0.1 ether;
+        uint256 etherAmount = 0.4 ether;
+
+        vm.startPrank(randomUser);
+        vm.deal(randomUser, etherAmount*2);
+        bank.depositEther{value: etherAmount}();
+        vm.stopPrank();
+
+        vm.startPrank(admin);
+        bank.modifyMaxBalance(newMaxBalance);
+        vm.stopPrank();
+
+        vm.expectRevert("MaxBalance reached");
+
+        vm.startPrank(randomUser);
+        bank.depositEther{value: etherAmount}();
+        vm.stopPrank();
+    }
+
+    function testWithdrawCorrectlyMoreThanMaxBalance() public {
+        uint256 newMaxBalance = 0.1 ether;
+        uint256 etherAmount = 0.5 ether;
+
+        vm.startPrank(randomUser);
+        vm.deal(randomUser, etherAmount);
+        bank.depositEther{value: etherAmount}();
+        vm.stopPrank();
+
+        uint256 balanceBeforeInBank = bank.userBalance(randomUser);
+        uint256 balanceBeforeOutBank = address(randomUser).balance;
+
+        vm.startPrank(admin);
+        bank.modifyMaxBalance(newMaxBalance);
+        vm.stopPrank();
+
+        assert(bank.maxBalance() < bank.userBalance(randomUser));
+
+        vm.startPrank(randomUser);
+        bank.withdrawEther(etherAmount);
+        vm.stopPrank();
+
+        uint256 balanceAfterInBank = bank.userBalance(randomUser);
+        uint256 balanceAfterOutBank = address(randomUser).balance;
+
+        assert(balanceBeforeInBank == balanceAfterInBank + etherAmount);
+        assert(balanceBeforeOutBank + etherAmount == balanceAfterOutBank);
+    }
+
+    function testReentrancyAttackFails() public {
+        Reentrancy attacker = new Reentrancy(address(bank));
+
+        vm.deal(address(attacker), 1 ether);
+        vm.expectRevert();
+
+        vm.prank(address(attacker));
+        attacker.attack();
+    }
+}
