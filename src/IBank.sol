@@ -7,6 +7,9 @@ pragma solidity 0.8.24;
 
 interface IBank {
 
+    /// @notice Allows a user deposit ether.
+    function depositEther() external payable;
+
     /// @notice Allows a user withdraw ether.
     function withdrawEther(uint256 amount_) external;
 }

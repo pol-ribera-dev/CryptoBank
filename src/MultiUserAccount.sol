@@ -71,8 +71,7 @@ contract MultiUser {
     /// @notice Lets an allowed user to deposit ether in the MultiAcount.
     /// @dev Calls the 'depositEther()' function of the bank with the ether we just send to this contract.
     function depositEther() external onlyAllowed payable {
-        (bool success,) = bank.call{value: msg.value}(abi.encodeWithSignature("depositEther()")); 
-        require(success, "Transfer failed");
+        IBank(bank).depositEther{value: msg.value}();
     }
 
     /// @notice Lets an allowed user to withdraw ether from the MultiAcount.
